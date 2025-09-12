@@ -1,25 +1,16 @@
-const cron = require('node-cron');
-const User = require('../models/User');
-const { sendBirthdayEmail } = require('./emailService');
+const cron = require("node-cron");
+const { emailService } = require("./email.service");
 
-const schedule = '0 7 * * *'; // every day at 7:00 AM
 
-cron.schedule(schedule, async () => {
-  try {
-    const today = new Date();
-    const users = await User.find({
-      $expr: {
-        $and: [
-          { $eq: [{ $dayOfMonth: "$dateOfBirth" }, { $dayOfMonth: today }] },
-          { $eq: [{ $month: "$dateOfBirth" }, { $month: today }] }
-        ]
-      }
-    });
 
-    users.forEach((user) => {
-      sendBirthdayEmail(user);
-    });
-  } catch (err) {
-    console.error('Error sending birthday emails:', err);
-  }
-});
+module.exports = () => {
+  console.log("Setting up cron job...");
+	cron.schedule(process.env.CRON_SCHEDULE, async () => {
+		try {
+      console.log("Running cron job...");
+			emailService();
+		} catch (err) {
+			console.error("Error sending birthday emails:", err);
+		}
+	});
+};

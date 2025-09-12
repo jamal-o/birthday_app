@@ -23,10 +23,23 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: {
     type: Date,
     required: true,
+    validate: {
+      validator: (v) => {
+        const today = new Date();
+        const birthDate = new Date(v);
+        return birthDate <= today;
+      },
+      message: 'Date of birth must be in the past',
+    },
+
   },
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  lastSentAt: {
+    type: Date,
+    default: null,
   },
 });
 
