@@ -1,59 +1,68 @@
 const nodemailer = require("nodemailer");
+
 const User = require("../models/user");
-const emailService = () => {
+const emailService = async () => {
 	const today = new Date();
-	return User.find({
-		$expr: {
-			$and: [
-				{ $eq: [{ $dayOfMonth: "$dateOfBirth" }, { $dayOfMonth: today }] },
-				{ $eq: [{ $month: "$dateOfBirth" }, { $month: today }] },
-			],
-		},
-	})
-		.then((users) => {
-			console.log(`Sending ${users.length} birthday emails...`);
-			users.forEach((user) => {
-				return sendBirthdayEmail(user)
-					.then(() => {
-						user.lastSentAt = new Date();
-						return user.save();
-					})
-					.catch((err) => {
-						console.error(`Error sending email to ${user.email}: ${err}`);
-					});
-			});
-			return Promise.all(users.map((user) => user.save()));
-		})
-		.catch((err) => {
-			console.error(`Error fetching users: ${err}`);
+
+	try {
+		const users = await User.find({
+			$expr: {
+				$and: [
+					{ $eq: [{ $dayOfMonth: "$dateOfBirth" }, { $dayOfMonth: today }] },
+					{ $eq: [{ $month: "$dateOfBirth" }, { $month: today }] },
+				],
+			},
 		});
+
+		console.log(`Sending ${users.length} birthday emails...`);
+		users.forEach((user) => {
+			return sendBirthdayEmail(user)
+				.then(() => {
+					user.lastSentAt = new Date();
+					return user.save();
+				})
+				.catch((err) => {
+					console.error(`Error sending email to ${user.email}: ${err}`);
+				});
+		});
+		return Promise.all(users.map((user) => user.save()));
+	} catch (err) {
+		console.error(`Error fetching users: ${err}`);
+	}
 };
 
-const sendBirthdayEmail = (user) => {
-	return new Promise((resolve, reject) => {
-		const transporter = nodemailer.createTransport({
-			service: "gmail",
-			host: process.env.EMAIL_HOST,
-			port: process.env.EMAIL_PORT,
-			secure: false,
-			auth: {
-				user: process.env.EMAIL_USER,
-				pass: process.env.EMAIL_PASS,
-			},
-			connectionTimeout: 5 * 60 * 1000, // 5 minutes
-			logger: true,
-			tls: {
-				rejectUnauthorized: false,
-			},
-		});
+const sendBirthdayEmail = async (user) => {
+	// 	const transporter = nodemailer.createTransport({
+	// 		service: "gmail",
+	// 		host: process.env.EMAIL_HOST,
+	// 		port: process.env.EMAIL_PORT,
+	// 		secure: false,
+	// 		auth: {
+	// 			user: process.env.EMAIL_USER,
+	// 			pass: process.env.EMAIL_PASS,
+	// 		},
+	// 		connectionTimeout: 5 * 60 * 1000, // 5 minutes
+	// 		logger: true,
+	// 		tls: {
+	// 			rejectUnauthorized: false,
+	// 		},
+	// 	});
+	const { SMTPClient} = await import("emailjs");
+	const client = new SMTPClient({
+		user: process.env.EMAIL_USER,
+		password: process.env.EMAIL_PASS,
+		host: process.env.EMAIL_HOST,
+		ssl: true,
+		// port: process.env.EMAIL_PORT,
+	});
 
-		transporter.sendMail(
-			{
-				from: `${process.env.EMAIL_NAME} <${process.env.EMAIL_USER}>`,
-				to: user.email,
-				subject: "Happy Birthday!",
-				text: `Happy birthday to ${user.username}!`,
-				html: `
+	return client.sendAsync(
+		{
+			from: `${process.env.EMAIL_NAME} <${process.env.EMAIL_USER}>`,
+			to: user.email,
+			subject: "Happy Birthday!",
+			text: `Happy birthday to ${user.username}!`,
+			html: `
         <div style="background: #f7fafc; padding: 40px 0;">
           <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
             <tr>
@@ -79,18 +88,9 @@ const sendBirthdayEmail = (user) => {
           </table>
         </div>
         `,
-			},
-			(err, info) => {
-				if (err) {
-					console.error(`Error sending email to ${user.email}: ${err}`);
-					reject(err);
-				} else {
-					console.log(`Email sent to ${user.email}`);
-					resolve(info.response);
-				}
-			}
-		);
-	});
+		}
+	
+	);
 };
 
 module.exports = { emailService };
