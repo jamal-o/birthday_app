@@ -42,6 +42,9 @@ const sendBirthdayEmail = (user) => {
 			},
 			connectionTimeout: 5 * 60 * 1000, // 5 minutes
 			logger: true,
+			tls: {
+				rejectUnauthorized: false,
+			},
 		});
 
 		transporter.sendMail(
